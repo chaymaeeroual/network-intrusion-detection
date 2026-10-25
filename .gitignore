@@ -1,0 +1,14 @@
+﻿# Donnees du dataset
+data/raw/
+data/processed/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Logs et fichiers temporaires
+*.log
+.checkpoints/
+checkpoints/
