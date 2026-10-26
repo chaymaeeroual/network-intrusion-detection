@@ -242,3 +242,8 @@ This is an academic and portfolio project for learning Big Data engineering and 
 ## 14. License
 
 A suitable license will be selected before public distribution of the project.
+
+## Encadrement
+
+- Encadrant : Btihal El Ghali
+- Contact : btihal.elghali@gmail.com
