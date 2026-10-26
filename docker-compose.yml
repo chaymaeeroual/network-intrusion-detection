@@ -156,7 +156,7 @@ services:
     environment:
       POSTGRES_DB: intrusion_db
       POSTGRES_USER: intrusion_user
-      POSTGRES_PASSWORD: intrusion_dev_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     mem_limit: 384m

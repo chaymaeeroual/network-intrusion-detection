@@ -12,3 +12,8 @@ venv/
 *.log
 .checkpoints/
 checkpoints/
+
+# Variables d'environnement et secrets
+.env
+.env.*
+!.env.example
