@@ -3,30 +3,52 @@ services:
   # =========================
   # KAFKA - INGESTION STREAMING
   # =========================
+  # Conteneurs : kafka:9092   |   Hôte (producteur Python) : localhost:9094
   kafka:
     image: apache/kafka:4.1.2
     container_name: nid_kafka
     hostname: kafka
     ports:
       - "9092:9092"
+      - "9094:9094"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
+      KAFKA_HEAP_OPTS: "-Xms384m -Xmx512m"
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
     volumes:
       - kafka_data:/var/lib/kafka/data
-    mem_limit: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    mem_limit: 1024m
     restart: unless-stopped
+
+  # Crée le topic du projet au démarrage (conteneur éphémère)
+  kafka-init:
+    image: apache/kafka:4.1.2
+    container_name: nid_kafka_init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic network-flows --partitions 3 --replication-factor 1"
+    restart: "no"
 
   # =========================
   # HDFS - NAMENODE
@@ -36,7 +58,7 @@ services:
     container_name: nid_namenode
     hostname: namenode
     ports:
-      - "9870:9870"
+      - "9871:9870"   # UI HDFS : http://localhost:9871
     environment:
       CLUSTER_NAME: intrusion-detection
       CORE_CONF_fs_defaultFS: hdfs://namenode:9000
@@ -44,7 +66,7 @@ services:
       HDFS_CONF_dfs_permissions_enabled: "false"
     volumes:
       - namenode_data:/hadoop/dfs/name
-    mem_limit: 512m
+    mem_limit: 768m
     restart: unless-stopped
 
   # =========================
@@ -97,7 +119,7 @@ services:
       org.apache.spark.deploy.master.Master
       --host spark-master
     ports:
-      - "8080:8080"
+      - "8080:8080"   # UI Spark : http://localhost:8080
       - "7077:7077"
     environment:
       SPARK_NO_DAEMONIZE: "true"
@@ -115,13 +137,13 @@ services:
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.worker.Worker
       --cores 1
-      --memory 512m
+      --memory 768m
       spark://spark-master:7077
     depends_on:
       - spark-master
     environment:
       SPARK_NO_DAEMONIZE: "true"
-    mem_limit: 768m
+    mem_limit: 1024m
     restart: unless-stopped
 
   # =========================
@@ -135,12 +157,39 @@ services:
       /opt/spark/bin/spark-class
       org.apache.spark.deploy.worker.Worker
       --cores 1
-      --memory 512m
+      --memory 768m
       spark://spark-master:7077
     depends_on:
       - spark-master
     environment:
       SPARK_NO_DAEMONIZE: "true"
+    mem_limit: 1024m
+    restart: unless-stopped
+
+  # =========================
+  # SPARK - CLIENT (là où tournent les drivers)
+  # =========================
+  # Les jobs se lancent ici :
+  #   docker exec nid_spark_client /opt/spark/bin/spark-submit /opt/app/ingestion/stream_to_hdfs.py
+  # Le dépôt est monté dans /opt/app : plus besoin de docker cp.
+  # Les réglages (mémoire, réplication 2, packages Kafka/JDBC) sont dans infra/spark-defaults.conf.
+  spark-client:
+    image: apache/spark:3.5.7-scala2.12-java17-python3-ubuntu
+    container_name: nid_spark_client
+    hostname: spark-client
+    user: root
+    command: ["sleep", "infinity"]
+    working_dir: /opt/app
+    ports:
+      - "4040:4040"   # UI de l'application en cours
+    depends_on:
+      - spark-master
+      - namenode
+      - kafka
+    volumes:
+      - ./:/opt/app
+      - ./infra/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ivy_cache:/tmp/ivy
     mem_limit: 768m
     restart: unless-stopped
 
@@ -148,7 +197,7 @@ services:
   # POSTGRESQL - RESULTS
   # =========================
   postgres:
-    image: postgres:16
+    image: postgres:16.4
     container_name: nid_postgres
     hostname: postgres
     ports:
@@ -156,9 +205,15 @@ services:
     environment:
       POSTGRES_DB: intrusion_db
       POSTGRES_USER: intrusion_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définis POSTGRES_PASSWORD dans le fichier .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intrusion_user -d intrusion_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     mem_limit: 384m
     restart: unless-stopped
 
@@ -171,3 +226,4 @@ volumes:
   datanode1_data:
   datanode2_data:
   postgres_data:
+  ivy_cache:

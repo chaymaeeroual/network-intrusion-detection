@@ -94,7 +94,7 @@ if __name__ == "__main__":
     parser.add_argument("--file", type=str, required=True, help="Chemin vers le CSV (ex: data/raw/mon_fichier.csv)")
     parser.add_argument("--rate", type=int, default=100, help="Événements par seconde (0 pour illimité)")
     parser.add_argument("--limit", type=int, default=None, help="Nombre max d'événements à envoyer")
-    parser.add_argument("--broker", type=str, default="localhost:9092", help="Adresse de Kafka")
+    parser.add_argument("--broker", type=str, default="localhost:9094", help="Adresse de Kafka")
     
     args = parser.parse_args()
 
