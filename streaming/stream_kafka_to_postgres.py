@@ -250,7 +250,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-)
 
-print("Pipeline Kafka -> Spark MLlib -> PostgreSQL demarre")
-query.awaitTermination()
+
+
