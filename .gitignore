@@ -17,3 +17,8 @@ checkpoints/
 .env
 .env.*
 !.env.example
+
+# Dataset
+data/
+*.csv
+*.zip
