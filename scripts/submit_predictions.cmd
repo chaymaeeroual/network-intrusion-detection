@@ -3,8 +3,8 @@
 setlocal
 
 set "PROJECT_DIR=%~dp0.."
-set "PYTHON_SCRIPT=%PROJECT_DIR%\streaming\stream_kafka_to_postgres.py"set "MODEL_DIR=%PROJECT_DIR%\intrusion_lr_model"
-
+set "PYTHON_SCRIPT=%PROJECT_DIR%\streaming\stream_kafka_to_postgres.py"
+set "MODEL_DIR=%PROJECT_DIR%\intrusion_lr_model"
 set "CONTAINER_SCRIPT=/opt/spark/work-dir/stream_kafka_to_postgres.py"
 set "CONTAINER_MODEL=/opt/spark/intrusion_lr_model"
 
@@ -39,6 +39,7 @@ docker exec -e POSTGRES_PASSWORD nid_spark_master ^
     /opt/spark/bin/spark-submit ^
     --master "local[2]" ^
     --deploy-mode client ^
+    --conf spark.jars.ivy=/tmp/spark-ivy-cache ^
     --packages %KAFKA_PACKAGE% ^
     --jars /opt/spark/jars/postgresql-42.7.4.jar ^
     %CONTAINER_SCRIPT%
