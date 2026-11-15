@@ -3,8 +3,7 @@
 setlocal
 
 set "PROJECT_DIR=%~dp0.."
-set "PYTHON_SCRIPT=%PROJECT_DIR%\scripts\stream_kafka_to_postgres.py"
-set "MODEL_DIR=%PROJECT_DIR%\intrusion_lr_model"
+set "PYTHON_SCRIPT=%PROJECT_DIR%\streaming\stream_kafka_to_postgres.py"set "MODEL_DIR=%PROJECT_DIR%\intrusion_lr_model"
 
 set "CONTAINER_SCRIPT=/opt/spark/work-dir/stream_kafka_to_postgres.py"
 set "CONTAINER_MODEL=/opt/spark/intrusion_lr_model"
