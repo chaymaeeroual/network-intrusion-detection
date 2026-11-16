@@ -97,10 +97,11 @@ services:
       org.apache.spark.deploy.master.Master
       --host spark-master
     ports:
-      - "8080:8080"
+      - "8081:8080"
       - "7077:7077"
     environment:
       SPARK_NO_DAEMONIZE: "true"
+      SPARK_LOCAL_HOSTNAME: spark-master
     mem_limit: 768m
     restart: unless-stopped
 
